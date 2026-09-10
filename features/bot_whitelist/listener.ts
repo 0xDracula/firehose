@@ -59,7 +59,12 @@ async function messageListener({
     if (!message || !message.channel) return;
     const { channel, ts, subtype } = message;
 
-    const isBot = subtype === 'bot_message' || 'bot_id' in message;
+    const botId =
+        'bot_id' in message && typeof message.bot_id === 'string' ? message.bot_id : undefined;
+    const isClassicBotMessage = subtype === 'bot_message';
+    const isModernBotMessage =
+        !!botId && 'bot_profile' in message && message.bot_profile != null;
+    const isBot = isClassicBotMessage || isModernBotMessage;
     if (!isBot) return;
 
     const threadTs = 'thread_ts' in message ? (message.thread_ts as string | undefined) : undefined;
@@ -69,7 +74,6 @@ async function messageListener({
         const config = await api.getWhitelistConfig(channel);
         if (!config || !config.enabled) return;
 
-        const botId = 'bot_id' in message ? (message.bot_id as string) : undefined;
         const userId = 'user' in message ? (message.user as string) : undefined;
         const identifier = userId || botId;
 
