@@ -111,13 +111,35 @@ async function messageListener({
                 ? `\n*Manage this bot:* https://hackclub.slack.com/marketplace/${appId}`
                 : '';
             const messageKind = isThreadReply ? 'thread reply' : 'top-level message';
-
-            await logInternal(
+            const alertText =
                 `*Bot Protection:* Deleted ${messageKind} from unauthorized bot *${displayName}* in <#${channel}>.\n` +
-                    `*Original Message:* ${messageLink}${marketplaceLink}`
-            );
+                `*Original Message:* ${messageLink}${marketplaceLink}`;
+            const alertBotId = botId || botUserId || userId;
 
             await deleteMessage(channel, ts);
+
+            if (!alertBotId) {
+                await logInternal(alertText);
+                return;
+            }
+
+            const activeAlert = await api.getActiveBotWhitelistAlert({
+                channelId: channel,
+                botId: alertBotId,
+            });
+
+            if (activeAlert) {
+                await logInternal(alertText, true, activeAlert.logMessageTs);
+                return;
+            }
+
+            const rootAlert = await logInternal(alertText);
+            if (rootAlert.ts) {
+                await api.saveBotWhitelistAlert(
+                    { channelId: channel, botId: alertBotId },
+                    rootAlert.ts
+                );
+            }
         }
     } catch (e) {
         console.error(`Error in messageListener bot whitelist enforcement:`, e);
